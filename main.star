@@ -1,5 +1,6 @@
 OPS_BEDROCK_L1_IMAGE = "ops-bedrock-l1:latest"
 OPS_BEDROCK_L2_IMAGE = "ops-bedrock-l2:latest"
+OP_NODE_IMAGE = "ops-bedrock-op-node:latest"
 
 
 def run(plan):
@@ -32,6 +33,45 @@ def run(plan):
             files={
                 "/config/": config_files.jwt_secret_artifact,
                 "/genesis/": config_files.l2_genesis,
+            },
+        ),
+    )
+
+    plan.add_service(
+        name="op-node",
+        config=ServiceConfig(
+            image=OP_NODE_IMAGE,
+            cmd=[
+                "op-node",
+                "--l1=ws://l1:8546",
+                "--l2=http://l2:8551",
+                "--l2.jwt-secret=/config/test-jwt-secret.txt",
+                "--sequencer.enabled",
+                "--sequencer.l1-confs=0",
+                "--verifier.l1-confs=0",
+                "--p2p.sequencer.key=8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
+                "--rollup.config=/rollup.json",
+                "--rpc.addr=0.0.0.0",
+                "--rpc.port=8545",
+                "--p2p.listen.ip=0.0.0.0",
+                "--p2p.listen.tcp=9003",
+                "--p2p.listen.udp=9003",
+                "--p2p.scoring.peers=light",
+                "--p2p.ban.peers=true",
+                "--snapshotlog.file=/op_log/snapshot.log",
+                "--p2p.priv.path=/config/p2p-node-key.txt",
+                "--metrics.enabled",
+                "--metrics.addr=0.0.0.0",
+                "--metrics.port=7300",
+                "--pprof.enabled",
+                "--rpc.enable-admin",
+            ],
+            ports={
+                "grpc": PortSpec(8545),
+                "metrics": PortSpec(7300),
+                "metrics-alt": PortSpec(6060),
+                "p2p-tcp": PortSpec(9003),
+                "p2p-udp": PortSpec(9003, transport_protocol="UDP"),
             },
         ),
     )
