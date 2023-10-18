@@ -30,6 +30,11 @@ def run(plan):
             image=OPS_BEDROCK_L2_IMAGE,
             ports={"grpc": PortSpec(number=8545), "metrics": PortSpec(number=6060)},
             env_vars={"GENESIS_FILE_PATH": "/genesis/genesis-l2.json"},
+            entrypoint=[
+                "/bin/sh",
+                "/entrypoint.sh",
+                "--authrpc.jwtsecret=/config/test-jwt-secret.txt",
+            ],
             files={
                 "/config/": uploaded_files.config,
                 "/genesis/": uploaded_files.l2_genesis,
@@ -58,6 +63,7 @@ def run(plan):
                 "--p2p.listen.udp=9003",
                 "--p2p.scoring.peers=light",
                 "--p2p.ban.peers=true",
+                # slight diversion as we don't have op_log volume
                 "--snapshotlog.file=/tmp/snapshot.log",
                 "--p2p.priv.path=/config/p2p-node-key.txt",
                 "--metrics.enabled",
