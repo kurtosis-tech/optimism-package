@@ -26,12 +26,18 @@ def run(plan):
 
     artifact_server = launch_artifact_server(plan, uploaded_files)
 
+    # this needs the op node to work; otherwise the file will be empty
+    # my read is that the op-node wrtites to snapshot.log
+    # this guy reads it; is my understanding
+    stateviz = launch_stateviz(plan)
+
     return struct(
         l1=l1,
         l2=l2,
         op_node=op_node,
         op_proposer=op_proposer,
         artifact_server=artifact_server,
+        stateviz=stateviz,
     )
 
 
@@ -140,22 +146,24 @@ def launch_op_node(plan, uploaded_files, l1, l2):
     )
 
 
-def launch_l1(plan, uploaded_files):
-    # To highlight - waits are automatic here
+def launch_stateviz(plan):
     return plan.add_service(
-        name="l1",
+        name="stateviz",
         config=ServiceConfig(
-            image=OPS_BEDROCK_L1_IMAGE,
+            image=OP_STATEVIZ_IMAGE,
             ports={
-                "rpc": PortSpec(number=RPC_PORT_NUM),
-                "ws": PortSpec(number=WS_PORT_NUM),
-                "metrics": PortSpec(number=6060),
+                "http": PortSpec(
+                    8080, transport_protocol="TCP", application_protocol="http"
+                ),
             },
-            env_vars={"GENESIS_FILE_PATH": "/genesis/genesis-l1.json"},
-            files={
-                "/config/": uploaded_files.config,
-                "/genesis/": uploaded_files.l1_genesis,
-            },
+            cmd=[
+                "stateviz",
+                "-addr",
+                "0.0.0.0:8080",
+                "-snapshot",
+                "/tmp/snapshot.log",
+                "-refresh=10s",
+            ],
         ),
     )
 
@@ -178,6 +186,26 @@ def launch_l2(plan, uploaded_files):
             files={
                 "/config/": uploaded_files.config,
                 "/genesis/": uploaded_files.l2_genesis,
+            },
+        ),
+    )
+
+
+def launch_l1(plan, uploaded_files):
+    # To highlight - waits are automatic here
+    return plan.add_service(
+        name="l1",
+        config=ServiceConfig(
+            image=OPS_BEDROCK_L1_IMAGE,
+            ports={
+                "rpc": PortSpec(number=RPC_PORT_NUM),
+                "ws": PortSpec(number=WS_PORT_NUM),
+                "metrics": PortSpec(number=6060),
+            },
+            env_vars={"GENESIS_FILE_PATH": "/genesis/genesis-l1.json"},
+            files={
+                "/config/": uploaded_files.config,
+                "/genesis/": uploaded_files.l1_genesis,
             },
         ),
     )
