@@ -4,6 +4,7 @@ OP_NODE_IMAGE = "ops-bedrock-op-node:latest"
 OP_PROPOSER_IMAGE = "ops-bedrock-op-proposer:latest"
 OP_BATCHER_IMAGE = "ops-bedrock-op-batcher:latest"
 OP_STATEVIZ_IMAGE = "ops-bedrock-stateviz:latest"
+ARTIFACT_SERVER_IMAGE = "nginx:1.25-alpine"
 
 RPC_PORT_NUM = 8545
 WS_PORT_NUM = 8546
@@ -23,7 +24,15 @@ def run(plan):
 
     op_batcher = launch_batcher(plan, uploaded_files, l1, l2, op_node)
 
-    return struct(l1=l1, l2=l2, op_node=op_node, op_proposer=op_proposer)
+    artifact_server = launch_artifact_server(plan, uploaded_files)
+
+    return struct(
+        l1=l1,
+        l2=l2,
+        op_node=op_node,
+        op_proposer=op_proposer,
+        artifact_server=artifact_server,
+    )
 
 
 def launch_batcher(plan, uploaded_files, l1, l2, op_node):
@@ -39,9 +48,11 @@ def launch_batcher(plan, uploaded_files, l1, l2, op_node):
             env_vars={
                 "OP_BATCHER_L1_ETH_RPC": "http://{0}:{1}".format(l1.name, RPC_PORT_NUM),
                 "OP_BATCHER_L2_ETH_RPC": "http://{0}:{1}".format(l2.name, RPC_PORT_NUM),
-                "OP_BATCHER_ROLLUP_RPC": "http://{0}:{1}".format(op_node.name, RPC_PORT_NUM),
+                "OP_BATCHER_ROLLUP_RPC": "http://{0}:{1}".format(
+                    op_node.name, RPC_PORT_NUM
+                ),
                 "OP_BATCHER_MAX_CHANNEL_DURATION": "1",
-                "OP_BATCHER_SUB_SAFETY_MARGIN": "4", # SWS is 15, ChannelTimeout is 40"
+                "OP_BATCHER_SUB_SAFETY_MARGIN": "4",  # SWS is 15, ChannelTimeout is 40"
                 "OP_BATCHER_POLL_INTERVAL": "1s",
                 "OP_BATCHER_NUM_CONFIRMATIONS": "1",
                 "OP_BATCHER_MNEMONIC": "test test test test test test test test test test test junk",
@@ -172,6 +183,21 @@ def launch_l2(plan, uploaded_files):
     )
 
 
+def launch_artifact_server(plan, uploaded_files):
+    return plan.add_service(
+        name="artifacts-server",
+        config=ServiceConfig(
+            image=ARTIFACT_SERVER_IMAGE,
+            ports={
+                "http": PortSpec(
+                    80, transport_protocol="TCP", application_protocol="http"
+                )
+            },
+            files={"/usr/share/nginx/html/": uploaded_files.all_generated},
+        ),
+    )
+
+
 def upload_config_and_genesis_files(plan):
     # This file has been copied over from ".devnet"; its a generated file
     # TODO generate this in Kurtosis
@@ -192,9 +218,14 @@ def upload_config_and_genesis_files(plan):
         src="./static_files/generated_files/rollup.json", name="rollup"
     )
 
+    all_generated = plan.upload_files(
+        "./static_files/generated_files", name="generated-files"
+    )
+
     return struct(
         l1_genesis=l1_genesis,
         l2_genesis=l2_genesis,
         config=config,
         rollup=rollup,
+        all_generated=all_generated,
     )
