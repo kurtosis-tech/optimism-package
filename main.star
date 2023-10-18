@@ -2,6 +2,8 @@ OPS_BEDROCK_L1_IMAGE = "ops-bedrock-l1:latest"
 OPS_BEDROCK_L2_IMAGE = "ops-bedrock-l2:latest"
 OP_NODE_IMAGE = "ops-bedrock-op-node:latest"
 OP_PROPOSER_IMAGE = "ops-bedrock-op-proposer:latest"
+OP_BATCHER_IMAGE = "ops-bedrock-op-batcher:latest"
+OP_STATEVIZ_IMAGE = "ops-bedrock-stateviz:latest"
 
 RPC_PORT_NUM = 8545
 WS_PORT_NUM = 8546
@@ -69,7 +71,7 @@ def launch_op_node(plan, uploaded_files, l1, l2):
                 "--p2p.sequencer.key=8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
                 "--rollup.config=/rollup/rollup.json",
                 "--rpc.addr=0.0.0.0",
-                "--rpc.port=8545",
+                "--rpc.port={0}".format(RPC_PORT_NUM),
                 "--p2p.listen.ip=0.0.0.0",
                 "--p2p.listen.tcp=9003",
                 "--p2p.listen.udp=9003",
