@@ -29,6 +29,7 @@ def run(plan):
     # this needs the op node to work; otherwise the file will be empty
     # my read is that the op-node wrtites to snapshot.log
     # this guy reads it; is my understanding
+    # we can just launch this as a background process in the op-node image
     stateviz = launch_stateviz(plan)
 
     return struct(
