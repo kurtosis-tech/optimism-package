@@ -12,6 +12,7 @@ WS_PORT_NUM = 8546
 def run(plan):
     uploaded_files = upload_config_and_genesis_files(plan)
 
+    # Question - can this just be the ethereum-package?
     l1 = launch_l1(plan, uploaded_files)
 
     l2 = launch_l2(plan, uploaded_files)
@@ -20,7 +21,37 @@ def run(plan):
 
     op_proposer = launch_proposer(plan, uploaded_files, l1, op_node)
 
+    op_batcher = launch_batcher(plan, uploaded_files, l1, l2, op_node)
+
     return struct(l1=l1, l2=l2, op_node=op_node, op_proposer=op_proposer)
+
+
+def launch_batcher(plan, uploaded_files, l1, l2, op_node):
+    return plan.add_service(
+        name="op-batcher",
+        config=ServiceConfig(
+            image=OP_BATCHER_IMAGE,
+            ports={
+                "rpc": PortSpec(RPC_PORT_NUM),
+                "metrics": PortSpec(7300),
+                "pprof": PortSpec(6060),
+            },
+            env_vars={
+                "OP_BATCHER_L1_ETH_RPC": "http://{0}:{1}".format(l1.name, RPC_PORT_NUM),
+                "OP_BATCHER_L2_ETH_RPC": "http://{0}:{1}".format(l2.name, RPC_PORT_NUM),
+                "OP_BATCHER_ROLLUP_RPC": "http://{0}:{1}".format(op_node.name, RPC_PORT_NUM),
+                "OP_BATCHER_MAX_CHANNEL_DURATION": "1",
+                "OP_BATCHER_SUB_SAFETY_MARGIN": "4", # SWS is 15, ChannelTimeout is 40"
+                "OP_BATCHER_POLL_INTERVAL": "1s",
+                "OP_BATCHER_NUM_CONFIRMATIONS": "1",
+                "OP_BATCHER_MNEMONIC": "test test test test test test test test test test test junk",
+                "OP_BATCHER_SEQUENCER_HD_PATH": "m/44'/60'/0'/0/2",
+                "OP_BATCHER_PPROF_ENABLED": "true",
+                "OP_BATCHER_METRICS_ENABLED": "true",
+                "OP_BATCHER_RPC_ENABLE_ADMIN": "true",
+            },
+        ),
+    )
 
 
 def launch_proposer(plan, uploaded_files, l1, op_node):
@@ -157,7 +188,9 @@ def upload_config_and_genesis_files(plan):
         src="./static_files/generated_files/genesis-l2.json", name="l2-genesis"
     )
 
-    rollup = plan.upload_files(src="./static_files/generated_files/rollup.json", name="rollup")
+    rollup = plan.upload_files(
+        src="./static_files/generated_files/rollup.json", name="rollup"
+    )
 
     return struct(
         l1_genesis=l1_genesis,
