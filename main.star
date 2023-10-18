@@ -18,6 +18,8 @@ def run(plan):
 
     op_proposer = launch_proposer(plan, uploaded_files, l1, op_node)
 
+    return struct(l1=l1, l2=l2, op_node=op_node, op_proposer=op_proposer)
+
 
 def launch_proposer(plan, uploaded_files, l1, op_node):
     return plan.add_service(
@@ -30,17 +32,18 @@ def launch_proposer(plan, uploaded_files, l1, op_node):
                 "metrics": PortSpec(7300),
             },
             env_vars={
-                "OP_PROPOSER_L1_ETH_RPC": "http://{0}:{0}".format(
+                "OP_PROPOSER_L1_ETH_RPC": "http://{0}:{1}".format(
                     l1.name, RPC_PORT_NUM
                 ),
-                "OP_PROPOSER_ROLLUP_RPC": "http://{0}:{0}".format(
+                "OP_PROPOSER_ROLLUP_RPC": "http://{0}:{1}".format(
                     op_node.name, RPC_PORT_NUM
                 ),
                 "OP_PROPOSER_POLL_INTERVAL": "1s",
                 "OP_PROPOSER_NUM_CONFIRMATIONS": "1",
                 "OP_PROPOSER_MNEMONIC": "test test test test test test test test test test test junk",
                 "OP_PROPOSER_L2_OUTPUT_HD_PATH": "m/44'/60'/0'/0/1",
-                "OP_PROPOSER_L2OO_ADDRESS": "${L2OO_ADDRESS}",
+                # TODO - make this address not hardcoded, currently this is the L2OutputOracle in the generated addresses.json
+                "OP_PROPOSER_L2OO_ADDRESS": "0x8203dEBE6cD849358473715fD46FE9b1aE44C44D",
                 "OP_PROPOSER_PPROF_ENABLED": "true",
                 "OP_PROPOSER_METRICS_ENABLED": "true",
                 "OP_PROPOSER_ALLOW_NON_FINALIZED": "true",
@@ -140,7 +143,7 @@ def upload_config_and_genesis_files(plan):
     # This file has been copied over from ".devnet"; its a generated file
     # TODO generate this in Kurtosis
     l1_genesis = plan.upload_files(
-        src="./static_files/genesis/genesis-l1.json", name="l1-genesis"
+        src="./static_files/generated_files/genesis-l1.json", name="l1-genesis"
     )
 
     #  This file is checked in to the repository; so is static
@@ -149,10 +152,10 @@ def upload_config_and_genesis_files(plan):
     # This file has been copied over from ".devnet"; its a generated file
     # TODO generate this in Kurtosis
     l2_genesis = plan.upload_files(
-        src="./static_files/genesis/genesis-l2.json", name="l2-genesis"
+        src="./static_files/generated_files/genesis-l2.json", name="l2-genesis"
     )
 
-    rollup = plan.upload_files(src="./static_files/rollup.json", name="rollup")
+    rollup = plan.upload_files(src="./static_files/generated_files/rollup.json", name="rollup")
 
     return struct(
         l1_genesis=l1_genesis,
