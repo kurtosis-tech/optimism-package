@@ -111,7 +111,7 @@ def launch_op_node(plan, uploaded_files, l1, l2):
             cmd=[
                 "op-node",
                 "--l1=ws://{0}:{1}".format(l1.name, WS_PORT_NUM),
-                "--l2=http://{0}:{1}".format(l2.name, RPC_PORT_NUM),
+                "--l2=http://{0}:8551".format(l2.name),
                 "--l2.jwt-secret=/config/test-jwt-secret.txt",
                 "--sequencer.enabled",
                 "--sequencer.l1-confs=0",
