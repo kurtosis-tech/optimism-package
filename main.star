@@ -8,6 +8,9 @@ ARTIFACT_SERVER_IMAGE = "nginx:1.25-alpine"
 
 RPC_PORT_NUM = 8545
 WS_PORT_NUM = 8546
+METRICS_PORT_NUM = 7300
+OP_NODE_P2P_PORT_NUM = 9003
+PPROF_PORT_NUM = 6060
 
 EMPTY_DOCKER_HUB_USER = ""
 
@@ -54,8 +57,8 @@ def launch_batcher(plan, docker_hub_user, uploaded_files, l1, l2, op_node):
             image=maybe_prefix_docker_hub_user(OP_BATCHER_IMAGE, docker_hub_user),
             ports={
                 "rpc": PortSpec(RPC_PORT_NUM),
-                "metrics": PortSpec(7300),
-                "pprof": PortSpec(6060),
+                "metrics": PortSpec(METRICS_PORT_NUM),
+                "pprof": PortSpec(PPROF_PORT_NUM),
             },
             env_vars={
                 "OP_BATCHER_L1_ETH_RPC": "http://{0}:{1}".format(l1.name, RPC_PORT_NUM),
@@ -83,9 +86,9 @@ def launch_proposer(plan, docker_hub_user, uploaded_files, l1, op_node):
         config=ServiceConfig(
             image=maybe_prefix_docker_hub_user(OP_PROPOSER_IMAGE, docker_hub_user),
             ports={
-                "pprof": PortSpec(6060),
+                "pprof": PortSpec(PPROF_PORT_NUM),
                 "rpc": PortSpec(RPC_PORT_NUM),
-                "metrics": PortSpec(7300),
+                "metrics": PortSpec(METRICS_PORT_NUM),
             },
             env_vars={
                 "OP_PROPOSER_L1_ETH_RPC": "http://{0}:{1}".format(
@@ -127,8 +130,8 @@ def launch_op_node(plan, docker_hub_user, uploaded_files, l1, l2):
                 "--rpc.addr=0.0.0.0",
                 "--rpc.port={0}".format(RPC_PORT_NUM),
                 "--p2p.listen.ip=0.0.0.0",
-                "--p2p.listen.tcp=9003",
-                "--p2p.listen.udp=9003",
+                "--p2p.listen.tcp={0}".format(OP_NODE_P2P_PORT_NUM),
+                "--p2p.listen.udp={0}".format(OP_NODE_P2P_PORT_NUM),
                 "--p2p.scoring.peers=light",
                 "--p2p.ban.peers=true",
                 # slight diversion as we don't have op_log volume
@@ -136,16 +139,16 @@ def launch_op_node(plan, docker_hub_user, uploaded_files, l1, l2):
                 "--p2p.priv.path=/config/p2p-node-key.txt",
                 "--metrics.enabled",
                 "--metrics.addr=0.0.0.0",
-                "--metrics.port=7300",
+                "--metrics.port={0}".format(METRICS_PORT_NUM),
                 "--pprof.enabled",
                 "--rpc.enable-admin",
             ],
             ports={
                 "rpc": PortSpec(RPC_PORT_NUM),
-                "metrics": PortSpec(7300),
-                "pprof": PortSpec(6060),
-                "p2p-tcp": PortSpec(9003),
-                "p2p-udp": PortSpec(9003, transport_protocol="UDP"),
+                "metrics": PortSpec(METRICS_PORT_NUM),
+                "pprof": PortSpec(PPROF_PORT_NUM),
+                "p2p-tcp": PortSpec(OP_NODE_P2P_PORT_NUM),
+                "p2p-udp": PortSpec(OP_NODE_P2P_PORT_NUM, transport_protocol="UDP"),
             },
             files={"/config/": uploaded_files.config, "/rollup": uploaded_files.rollup},
         ),
@@ -181,7 +184,7 @@ def launch_l2(plan, docker_hub_user, uploaded_files):
             image=maybe_prefix_docker_hub_user(OPS_BEDROCK_L2_IMAGE, docker_hub_user),
             ports={
                 "rpc": PortSpec(number=RPC_PORT_NUM),
-                "metrics": PortSpec(number=6060),
+                "pprof": PortSpec(number=PPROF_PORT_NUM),
             },
             env_vars={"GENESIS_FILE_PATH": "/genesis/genesis-l2.json"},
             entrypoint=[
