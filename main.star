@@ -1,3 +1,5 @@
+# skylark is a language that is a subset of python used by bazel
+# it's good for writing configurations with a little more expressiveness than something like toml
 OPS_BEDROCK_L1_IMAGE = "ops-bedrock-l1:latest"
 OPS_BEDROCK_L2_IMAGE = "ops-bedrock-l2:latest"
 OP_NODE_IMAGE = "ops-bedrock-op-node:latest"
@@ -9,23 +11,20 @@ ARTIFACT_SERVER_IMAGE = "nginx:1.25-alpine"
 RPC_PORT_NUM = 8545
 WS_PORT_NUM = 8546
 
-
+# this is adapted from the optimism monorepo
+# https://github.com/ethereum-optimism/optimism/blob/develop/bedrock-devnet/devnet/__init__.py
 def run(plan):
     uploaded_files = upload_config_and_genesis_files(plan)
 
-    # Question - can this just be the ethereum-package?
+    # his could be just stock geth 
+    # https://github.com/ethereum-optimism/optimism/blob/develop/ops-bedrock/Dockerfile.l1
     l1 = launch_l1(plan, uploaded_files)
-
+    # this one could be op geth https://github.com/ethereum-optimism/optimism/blob/develop/ops-bedrock/Dockerfile.l2
     l2 = launch_l2(plan, uploaded_files)
-
     op_node = launch_op_node(plan, uploaded_files, l1, l2)
-
     op_proposer = launch_proposer(plan, uploaded_files, l1, op_node)
-
     op_batcher = launch_batcher(plan, uploaded_files, l1, l2, op_node)
-
     artifact_server = launch_artifact_server(plan, uploaded_files)
-
     # this needs the op node to work; otherwise the file will be empty
     # my read is that the op-node wrtites to snapshot.log
     # this guy reads it; is my understanding
@@ -43,11 +42,13 @@ def run(plan):
 
 
 def launch_batcher(plan, uploaded_files, l1, l2, op_node):
+    # plan.add_service is similar to a service in a docker-compose file
     return plan.add_service(
         name="op-batcher",
         config=ServiceConfig(
             image=OP_BATCHER_IMAGE,
             ports={
+                # I believe PortSpec is a kurtosis thing
                 "rpc": PortSpec(RPC_PORT_NUM),
                 "metrics": PortSpec(7300),
                 "pprof": PortSpec(6060),
@@ -227,6 +228,7 @@ def launch_artifact_server(plan, uploaded_files):
     )
 
 
+# Will question: when does this happen compared to everything else? Do we generate the files before we generate the final starlark config or is it evaluated after?
 def upload_config_and_genesis_files(plan):
     # This file has been copied over from ".devnet"; its a generated file
     # TODO generate this in Kurtosis
