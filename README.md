@@ -15,6 +15,10 @@ OP_STATEVIZ_IMAGE = "ops-bedrock-stateviz:latest"
 
 To have these images ready you should run `docker compose build --progress plan` from inside `optimism/ops-bedrock`
 
+## Installation Instructions
+
+1. [Install kurtosis cli](https://docs.kurtosis.com/install/#ii-install-the-cli)
+
 ## Run Instructions
 
 1. kurtosis run github.com/kurtosis-tech/optimism-package --enclave optimism
