@@ -8,21 +8,29 @@ ARTIFACT_SERVER_IMAGE = "nginx:1.25-alpine"
 
 RPC_PORT_NUM = 8545
 WS_PORT_NUM = 8546
+METRICS_PORT_NUM = 7300
+OP_NODE_P2P_PORT_NUM = 9003
+PPROF_PORT_NUM = 6060
+
+EMPTY_DOCKER_HUB_USER = ""
 
 
-def run(plan):
+def run(plan, args):
+    # if set to anything but EMPTY_DOCKER_HUB_USER; we will pre-fix this to the image
+    docker_hub_user = args.get("docker_hub_user", EMPTY_DOCKER_HUB_USER)
+
     uploaded_files = upload_config_and_genesis_files(plan)
 
     # Question - can this just be the ethereum-package?
-    l1 = launch_l1(plan, uploaded_files)
+    l1 = launch_l1(plan, docker_hub_user, uploaded_files)
 
-    l2 = launch_l2(plan, uploaded_files)
+    l2 = launch_l2(plan, docker_hub_user, uploaded_files)
 
-    op_node = launch_op_node(plan, uploaded_files, l1, l2)
+    op_node = launch_op_node(plan, docker_hub_user, uploaded_files, l1, l2)
 
-    op_proposer = launch_proposer(plan, uploaded_files, l1, op_node)
+    op_proposer = launch_proposer(plan, docker_hub_user, uploaded_files, l1, op_node)
 
-    op_batcher = launch_batcher(plan, uploaded_files, l1, l2, op_node)
+    op_batcher = launch_batcher(plan, docker_hub_user, uploaded_files, l1, l2, op_node)
 
     artifact_server = launch_artifact_server(plan, uploaded_files)
 
@@ -30,7 +38,7 @@ def run(plan):
     # my read is that the op-node wrtites to snapshot.log
     # this guy reads it; is my understanding
     # we can just launch this as a background process in the op-node image
-    stateviz = launch_stateviz(plan)
+    stateviz = launch_stateviz(plan, docker_hub_user)
 
     return struct(
         l1=l1,
@@ -42,15 +50,15 @@ def run(plan):
     )
 
 
-def launch_batcher(plan, uploaded_files, l1, l2, op_node):
+def launch_batcher(plan, docker_hub_user, uploaded_files, l1, l2, op_node):
     return plan.add_service(
         name="op-batcher",
         config=ServiceConfig(
-            image=OP_BATCHER_IMAGE,
+            image=maybe_prefix_docker_hub_user(OP_BATCHER_IMAGE, docker_hub_user),
             ports={
                 "rpc": PortSpec(RPC_PORT_NUM),
-                "metrics": PortSpec(7300),
-                "pprof": PortSpec(6060),
+                "metrics": PortSpec(METRICS_PORT_NUM),
+                "pprof": PortSpec(PPROF_PORT_NUM),
             },
             env_vars={
                 "OP_BATCHER_L1_ETH_RPC": "http://{0}:{1}".format(l1.name, RPC_PORT_NUM),
@@ -72,15 +80,15 @@ def launch_batcher(plan, uploaded_files, l1, l2, op_node):
     )
 
 
-def launch_proposer(plan, uploaded_files, l1, op_node):
+def launch_proposer(plan, docker_hub_user, uploaded_files, l1, op_node):
     return plan.add_service(
         name="op-proposer",
         config=ServiceConfig(
-            image=OP_PROPOSER_IMAGE,
+            image=maybe_prefix_docker_hub_user(OP_PROPOSER_IMAGE, docker_hub_user),
             ports={
-                "pprof": PortSpec(6060),
+                "pprof": PortSpec(PPROF_PORT_NUM),
                 "rpc": PortSpec(RPC_PORT_NUM),
-                "metrics": PortSpec(7300),
+                "metrics": PortSpec(METRICS_PORT_NUM),
             },
             env_vars={
                 "OP_PROPOSER_L1_ETH_RPC": "http://{0}:{1}".format(
@@ -104,11 +112,11 @@ def launch_proposer(plan, uploaded_files, l1, op_node):
     )
 
 
-def launch_op_node(plan, uploaded_files, l1, l2):
+def launch_op_node(plan, docker_hub_user, uploaded_files, l1, l2):
     return plan.add_service(
         name="op-node",
         config=ServiceConfig(
-            image=OP_NODE_IMAGE,
+            image=maybe_prefix_docker_hub_user(OP_NODE_IMAGE, docker_hub_user),
             cmd=[
                 "op-node",
                 "--l1=ws://{0}:{1}".format(l1.name, WS_PORT_NUM),
@@ -122,8 +130,8 @@ def launch_op_node(plan, uploaded_files, l1, l2):
                 "--rpc.addr=0.0.0.0",
                 "--rpc.port={0}".format(RPC_PORT_NUM),
                 "--p2p.listen.ip=0.0.0.0",
-                "--p2p.listen.tcp=9003",
-                "--p2p.listen.udp=9003",
+                "--p2p.listen.tcp={0}".format(OP_NODE_P2P_PORT_NUM),
+                "--p2p.listen.udp={0}".format(OP_NODE_P2P_PORT_NUM),
                 "--p2p.scoring.peers=light",
                 "--p2p.ban.peers=true",
                 # slight diversion as we don't have op_log volume
@@ -131,27 +139,27 @@ def launch_op_node(plan, uploaded_files, l1, l2):
                 "--p2p.priv.path=/config/p2p-node-key.txt",
                 "--metrics.enabled",
                 "--metrics.addr=0.0.0.0",
-                "--metrics.port=7300",
+                "--metrics.port={0}".format(METRICS_PORT_NUM),
                 "--pprof.enabled",
                 "--rpc.enable-admin",
             ],
             ports={
                 "rpc": PortSpec(RPC_PORT_NUM),
-                "metrics": PortSpec(7300),
-                "pprof": PortSpec(6060),
-                "p2p-tcp": PortSpec(9003),
-                "p2p-udp": PortSpec(9003, transport_protocol="UDP"),
+                "metrics": PortSpec(METRICS_PORT_NUM),
+                "pprof": PortSpec(PPROF_PORT_NUM),
+                "p2p-tcp": PortSpec(OP_NODE_P2P_PORT_NUM),
+                "p2p-udp": PortSpec(OP_NODE_P2P_PORT_NUM, transport_protocol="UDP"),
             },
             files={"/config/": uploaded_files.config, "/rollup": uploaded_files.rollup},
         ),
     )
 
 
-def launch_stateviz(plan):
+def launch_stateviz(plan, docker_hub_user):
     return plan.add_service(
         name="stateviz",
         config=ServiceConfig(
-            image=OP_STATEVIZ_IMAGE,
+            image=maybe_prefix_docker_hub_user(OP_STATEVIZ_IMAGE, docker_hub_user),
             ports={
                 "http": PortSpec(
                     8080, transport_protocol="TCP", application_protocol="http"
@@ -169,14 +177,14 @@ def launch_stateviz(plan):
     )
 
 
-def launch_l2(plan, uploaded_files):
+def launch_l2(plan, docker_hub_user, uploaded_files):
     return plan.add_service(
         name="l2",
         config=ServiceConfig(
-            image=OPS_BEDROCK_L2_IMAGE,
+            image=maybe_prefix_docker_hub_user(OPS_BEDROCK_L2_IMAGE, docker_hub_user),
             ports={
                 "rpc": PortSpec(number=RPC_PORT_NUM),
-                "metrics": PortSpec(number=6060),
+                "pprof": PortSpec(number=PPROF_PORT_NUM),
             },
             env_vars={"GENESIS_FILE_PATH": "/genesis/genesis-l2.json"},
             entrypoint=[
@@ -192,12 +200,12 @@ def launch_l2(plan, uploaded_files):
     )
 
 
-def launch_l1(plan, uploaded_files):
+def launch_l1(plan, docker_hub_user, uploaded_files):
     # To highlight - waits are automatic here
     return plan.add_service(
         name="l1",
         config=ServiceConfig(
-            image=OPS_BEDROCK_L1_IMAGE,
+            image=maybe_prefix_docker_hub_user(OPS_BEDROCK_L1_IMAGE, docker_hub_user),
             ports={
                 "rpc": PortSpec(number=RPC_PORT_NUM),
                 "ws": PortSpec(number=WS_PORT_NUM),
@@ -258,3 +266,9 @@ def upload_config_and_genesis_files(plan):
         rollup=rollup,
         all_generated=all_generated,
     )
+
+
+def maybe_prefix_docker_hub_user(image, docker_hub_user):
+    if docker_hub_user == EMPTY_DOCKER_HUB_USER:
+        return image
+    return docker_hub_user + "/" + image

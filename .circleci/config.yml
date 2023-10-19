@@ -22,7 +22,7 @@ jobs:
       - run: kurtosis engine restart
 
       - run: |
-          kurtosis run ${PWD}
+          kurtosis run ${PWD} '{"docker_hub_user": "h4ck3rk3y"}'
 
 workflows:
   build:
