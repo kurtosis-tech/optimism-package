@@ -19,9 +19,30 @@ To have these images ready you should run `docker compose build --progress plan`
 
 1. [Install kurtosis cli](https://docs.kurtosis.com/install/#ii-install-the-cli)
 
+```bash
+brew install kurtosis-tech/tap/kurtosis-cli
+```
+
 ## Run Instructions
 
 1. kurtosis run github.com/kurtosis-tech/optimism-package --enclave optimism
+
+Kurtosis will execute the [main.star](./main.star) file to get the config as well as upload important artifacts
+
+<img width="1719" alt="image" src="https://github.com/roninjin10/optimism-package/assets/35039927/c1aed6aa-5e55-46dd-9913-e435caf2c336">
+
+The config is generated from Starlark, which is a subset of python to write config files. Starlark is somewhere between python and toml.
+
+<img width="1044" alt="image" src="https://github.com/roninjin10/optimism-package/assets/35039927/78257603-3d5b-4523-b8e9-f25176a478ed">
+
+An enclave is created. Not sure what this is.
+
+<img width="1385" alt="image" src="https://github.com/roninjin10/optimism-package/assets/35039927/00782cbb-7fcd-400c-b836-57c1690cfe94">
+
+Finally docker containers should be spun up
+
+<img width="1342" alt="image" src="https://github.com/roninjin10/optimism-package/assets/35039927/5dc81b47-940c-447d-87bc-b9efb7ddd3a3">
+
 
 ## Test Instructions
 
